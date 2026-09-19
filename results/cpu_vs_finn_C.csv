@@ -1,0 +1,3 @@
+Platform,Throughput (FPS),Latency (ms),Execution Type
+CPU (1 thread),42.63,23.4925,PyTorch CPU
+FINN Configuration C,2416.8834,1.03256,RTL simulation @ 100 MHz
