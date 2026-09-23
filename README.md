@@ -3,9 +3,9 @@
 **Final project in Computer Engineering — Project 335**
 Faculty of Engineering, Bar-Ilan University
 
-Authors: Roni Volshtein, Kinanah Hanif
-Academic supervisor: Prof. Leonid Yavits
-Project mentor: David Freud
+Authors: Roni Volshtein, Kinanah Hanif  
+Academic supervisor: Prof. Leonid Yavits  
+Project mentor: David Freud  
 Track: Hardware Design
 
 ---
