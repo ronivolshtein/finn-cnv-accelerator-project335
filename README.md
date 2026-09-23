@@ -4,7 +4,7 @@
 Faculty of Engineering, Bar-Ilan University
 
 Authors: Roni Volshtein, Kinanah Hanif
-Academic supervisor: Dr. Leonid Yavits
+Academic supervisor: Prof. Leonid Yavits
 Project mentor: David Freud
 Track: Hardware Design
 
@@ -28,14 +28,23 @@ slowest pipeline stage and widening it.
 
 ## Scope — please read
 
-All results in this repository come from **cycle-accurate RTL simulation
-(PyVerilator RTLSIM)** and **Vivado Out-of-Context synthesis**.
+All performance results in this repository come from **cycle-accurate RTL
+simulation (PyVerilator RTLSIM)** and **Vivado Out-of-Context synthesis**.
 
 The design was **not deployed to a physical PYNQ-Z1 board**. There are no
-on-board measurements, no bitstream, no power figures, and no GPU baseline.
-The CPU baseline is a real measurement; the FPGA figures are simulated.
-Speedup ratios below compare a measured CPU against simulated FPGA timing and
-should be read in that light.
+on-board measurements, no power figures, and no GPU baseline. The CPU baseline
+is a real measurement; the FPGA figures are simulated. Speedup ratios below
+compare a measured CPU against simulated FPGA timing and should be read in
+that light.
+
+A bitstream, however, **was** generated. Both `hardware/deploy-on-pynq-cnv.zip`
+and `hardware/deploy-on-pynq-tfc.zip` contain a real `resizer.bit` built for
+the PYNQ-Z1 part `7z020clg400` with Vivado 2022.2, together with the
+FINN-generated PYNQ driver and the `resizer.hwh` block-design metadata. What
+did not happen is the step after that: neither package was ever executed on a
+board. Each contains an `input.npy` and no corresponding output, and PYNQ's
+`Overlay()` is not called anywhere in the notebooks. See
+[Hardware artifacts](#hardware-artifacts) for the build provenance.
 
 ---
 
@@ -120,6 +129,7 @@ configs/     The folding parameters for configurations A–D
 | `cnv_folding_C.ipynb` | Configuration C — the recommended design |
 | `cnv_folding_D.ipynb` | Configuration D — maximum throughput |
 | `cnv_final_verification.ipynb` | `STITCHED_IP_RTLSIM` functional verification **and the CPU baseline benchmark** |
+| `cnv_cpu_gpu_benchmark.ipynb` | The environment check that records why there is no GPU baseline, plus an independent reproduction of the Configuration A reports. **Not** the source of the CPU baseline — see below |
 | `tfc_end2end_baseline.ipynb` | Fully-connected (TFC) reference flow, used while learning FINN |
 | `tfc_end2end_verification_B.ipynb` | Verification of the TFC flow |
 
@@ -130,14 +140,59 @@ evidence.
 Note that `cnv_final_verification.ipynb` contains three CPU benchmark cells.
 The figure used throughout the project book is the **5-run average — 42.63 FPS
 and 23.49 ms** (cell 35). An earlier single-run cell reports 46.28 FPS; it is
-kept for transparency but the 5-run average is the reported result.
+kept for transparency but the 5-run average is the reported result. A third
+cell was never executed.
+
+`cnv_cpu_gpu_benchmark.ipynb` needs a caveat of its own. It does contain a CPU
+benchmark cell, but **that cell was never run** — it carries
+`execution_count: null` and no output, and it is the same code as the equally
+unrun third cell in `cnv_final_verification.ipynb`. No CPU figure anywhere in
+this repository or in the project book comes from it. What the notebook does
+hold is the record of the missing GPU: `torch.cuda.is_available()` returning
+`False` and `nvidia-smi: command not found`, which is the reason no GPU
+baseline exists.
+
+**Not every line of text in the notebooks is ours.** These notebooks were
+derived from the official FINN end-to-end tutorials, and the tutorials'
+explanatory markdown was kept alongside our own work rather than stripped out.
+That text describes the tutorial's model, not our measurements. The clearest
+example is the sentence *"the final top-1 accuracy is 84.19%"*, which appears
+word for word in six of the CNV notebooks: it is the FINN tutorial's statement
+about the pretrained CNV-w1a1 model, not an accuracy this project measured.
+**No CIFAR-10 accuracy evaluation was run in this project** — functional
+verification here is a single golden input/output pair, as described above.
 
 ### Hardware artifacts
 
 `deploy-on-pynq-cnv.zip` and `deploy-on-pynq-tfc.zip` are the deployment
-packages FINN generated for the two networks. `stitched_ip.png`, `top.pdf`,
-`StreamingDataflowPartition_1.pdf` and `pynq_shell_project.png` are the
-generated Vivado block designs.
+packages FINN generated for the two networks, each containing a real bitstream.
+`stitched_ip.png`, `top.pdf`, `StreamingDataflowPartition_1.pdf` and
+`pynq_shell_project.png` are the generated Vivado block designs.
+
+The TFC build is documented in the notebooks: in `tfc_end2end_baseline.ipynb`,
+the `ZynqBuild` cell ran and kept its Vivado output, and the packaging cells
+below it show the deployment directory being assembled. **The CNV build is
+not.** In every CNV notebook the `ZynqBuild` cell carries
+`execution_count: null` and no output, so the file itself is the only record
+that the CNV bitstream was built:
+
+| Evidence | Value |
+|---|---|
+| `resizer.hwh` — block design created | `Sun Apr  5 12:09:04 2026` |
+| `resizer.bit` header — design | `top_wrapper;UserID=0XFFFFFFFF;Version=2022.2` |
+| `resizer.bit` header — part | `7z020clg400` |
+| `resizer.bit` header — written | `2026/04/05 12:30:58` |
+| zip member timestamps | `2026-04-05 13:06:54` – `13:07:26` |
+| file size | 4,045,671 bytes — the full configuration size for an XC7Z020 |
+
+The 22 minutes between block design and bitstream, and the interval from there
+to packaging, are consistent with one uninterrupted
+synthesis–implementation–bitgen run. The TFC bitstream in this repository was
+written at `13:51:31` the same day.
+
+Because no build log was retained, **which folding configuration the CNV
+bitstream corresponds to is not documented**, and it should not be assumed to
+be Configuration C.
 
 ---
 
