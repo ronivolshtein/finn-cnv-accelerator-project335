@@ -1,0 +1,5 @@
+config,total_on_chip_power_W,dynamic_W,device_static_W,clocks_W,slice_logic_W,signals_W,block_ram_W,junction_temp_C,confidence_level,rtlsim_fps,energy_per_inference_mJ,throughput_per_watt_fps_per_W
+A_baseline,0.660,0.543,0.118,0.073,0.130,0.163,0.177,32.6,Medium,1725.66,0.3825,2614.6
+B,0.660,0.542,0.118,0.073,0.130,0.162,0.177,32.6,Medium,2324.99,0.2839,3522.7
+C_recommended,0.631,0.514,0.117,0.078,0.123,0.149,0.165,32.3,Medium,2416.88,0.2611,3830.2
+D_maximum,0.681,0.562,0.118,0.074,0.137,0.174,0.177,32.9,Medium,2488.68,0.2736,3654.4
