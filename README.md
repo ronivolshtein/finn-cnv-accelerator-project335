@@ -32,18 +32,23 @@ All performance results in this repository come from **cycle-accurate RTL
 simulation (PyVerilator RTLSIM)** and **Vivado Out-of-Context synthesis**.
 
 The design was **not deployed to a physical PYNQ-Z1 board**. There are no
-on-board measurements, no power figures, and no GPU baseline. The CPU baseline
-is a real measurement; the FPGA figures are simulated. Speedup ratios below
-compare a measured CPU against simulated FPGA timing and should be read in
-that light.
+on-board measurements and no GPU baseline. The CPU baseline is a real
+measurement; the FPGA figures are simulated. Speedup ratios below compare a
+measured CPU against simulated FPGA timing and should be read in that light.
 
-A bitstream, however, **was** generated. Both `hardware/deploy-on-pynq-cnv.zip`
-and `hardware/deploy-on-pynq-tfc.zip` contain a real `resizer.bit` built for
-the PYNQ-Z1 part `7z020clg400` with Vivado 2022.2, together with the
-FINN-generated PYNQ driver and the `resizer.hwh` block-design metadata. What
-did not happen is the step after that: neither package was ever executed on a
-board. Each contains an `input.npy` and no corresponding output, and PYNQ's
-`Overlay()` is not called anywhere in the notebooks. See
+**Power figures are estimates, not measurements.** They come from Vivado's
+`report_power` on the placed and routed out-of-context design — the accelerator
+alone, without the Zynq processing system — with no switching activity file
+supplied. See [Power and energy](#power-and-energy) for the numbers and the
+qualifications that go with them.
+
+A bitstream **was** generated. Both `hardware/deploy-on-pynq-cnv.zip` and
+`hardware/deploy-on-pynq-tfc.zip` contain a real `resizer.bit` built for the
+PYNQ-Z1 part `7z020clg400` with Vivado 2022.2, together with the FINN-generated
+PYNQ driver and the `resizer.hwh` block-design metadata. What did not happen is
+the step after that: neither package was ever executed on a board. Each
+contains an `input.npy` and no corresponding output, and PYNQ's `Overlay()` is
+not called anywhere in the notebooks. See
 [Hardware artifacts](#hardware-artifacts) for the build provenance.
 
 ---
@@ -71,6 +76,44 @@ for almost the same performance.
 activations the multiply-accumulate collapses into XNOR plus popcount, which
 maps onto LUTs rather than DSP blocks.
 
+### Power and energy
+
+| Config | Total on-chip (W) | Dynamic (W) | Static (W) | Energy / inference (mJ) | FPS per Watt |
+|---|---|---|---|---|---|
+| A (baseline) | 0.660 | 0.543 | 0.118 | 0.383 | 2,615 |
+| B | 0.660 | 0.542 | 0.118 | 0.284 | 3,523 |
+| **C (recommended)** | **0.631** | 0.514 | 0.117 | **0.261** | **3,830** |
+| D (maximum) | 0.681 | 0.562 | 0.118 | 0.274 | 3,654 |
+
+Configuration C draws the least power of the four and delivers the lowest
+energy per inference — 31.7% below the baseline. D buys about three percent
+more throughput for 7.9% more power and ends up less energy efficient than C.
+The recommendation of C, argued above on timing margin and resource cost, holds
+independently on the energy axis.
+
+For C the breakdown is 0.165 W in Block RAM, 0.149 W in signals, 0.123 W in
+slice logic, 0.078 W in clocking and 0.117 W of device static power. Junction
+temperature is 32.3 °C at a 25 °C ambient, against a maximum permissible
+ambient of 77.7 °C.
+
+Three qualifications. The synthesis is **out-of-context**: the design analysed
+is the `finn_design_wrapper` accelerator alone, without the Zynq processing
+system, the DMA engines or the PYNQ shell, so these are accelerator figures and
+not board figures. **No switching activity file was supplied**, so Vivado
+propagated default activity rates; every report states a confidence level of
+**Medium**. And energy per inference combines an estimated power with a
+simulated throughput, so it carries the same caveat as the speedup ratios.
+
+These numbers were not produced by a separate analysis. FINN's
+`step_out_of_context_synthesis` runs `deps/oh-my-xilinx/vivadocompile.tcl`,
+which ends with `open_run impl_1` followed by `report_utilization`,
+`report_timing` and `report_power` in one Vivado session — so the power figures
+come from the same run, minutes apart, as the LUT, FF, BRAM and WNS figures in
+the table above.
+
+Full reports: [`results/vivado_power_reports.txt`](results/vivado_power_reports.txt)
+Summary data: [`results/power_A_D.csv`](results/power_A_D.csv)
+
 ### CPU baseline vs. Configuration C
 
 | Platform | Method | Throughput | Latency |
@@ -86,7 +129,8 @@ Source data: [`results/cpu_vs_finn_C.csv`](results/cpu_vs_finn_C.csv)
 ### Functional verification
 
 Configuration C was verified with `STITCHED_IP_RTLSIM` against the PyTorch
-software model. Both returned class 3 — `Match = True`.
+software model. Both returned class 3 — `Match = True`. This is a single-input
+consistency check, not an accuracy evaluation over CIFAR-10.
 
 ---
 
@@ -115,10 +159,20 @@ container from the host.
 
 ```
 notebooks/   Jupyter notebooks, with all outputs preserved
-results/     Final measurement data (CSV) and the charts used in the book
+results/     Final measurement data (CSV), the Vivado power reports, and the charts used in the book
 hardware/    FINN-generated deployment packages and Vivado block diagrams
 configs/     The folding parameters for configurations A–D
 ```
+
+Appendix A of the project book lists thirteen notebooks; eight are here. The
+rest are the official FINN tutorial notebooks — `0_how_to_work_with_onnx`,
+`1_brevitas_network_import_via_QONNX`, the cybersecurity MLP series and the
+FINN end-to-end examples — which we worked through while learning the
+framework. They belong to the FINN project and are not ours to redistribute.
+The notebooks kept here are the ones this project ran: they derive from the
+FINN end-to-end example flow and were extended with the per-layer folding
+configurations, the bottleneck-driven exploration procedure, the
+`STITCHED_IP_RTLSIM` verification harness and the CPU baseline benchmark.
 
 ### Which notebook produces what
 
@@ -131,7 +185,11 @@ configs/     The folding parameters for configurations A–D
 | `cnv_final_verification.ipynb` | `STITCHED_IP_RTLSIM` functional verification **and the CPU baseline benchmark** |
 | `cnv_cpu_gpu_benchmark.ipynb` | The environment check that records why there is no GPU baseline, plus an independent reproduction of the Configuration A reports. **Not** the source of the CPU baseline — see below |
 | `tfc_end2end_baseline.ipynb` | Fully-connected (TFC) reference flow, used while learning FINN |
-| `tfc_end2end_verification_B.ipynb` | Verification of the TFC flow |
+| `tfc_end2end_verification_B.ipynb` | Verification of the TFC flow — `cppsim` and node-by-node RTL simulation were exercised here, on the TFC network only |
+
+Each of the four configuration notebooks also carries its Vivado power report
+in the output of its build cell; those reports are collected in
+`results/vivado_power_reports.txt`.
 
 **Notebook outputs are deliberately not cleared.** The measured numbers reported
 in the project book live in those outputs, and clearing them would remove the
@@ -190,9 +248,13 @@ to packaging, are consistent with one uninterrupted
 synthesis–implementation–bitgen run. The TFC bitstream in this repository was
 written at `13:51:31` the same day.
 
-Because no build log was retained, **which folding configuration the CNV
-bitstream corresponds to is not documented**, and it should not be assumed to
-be Configuration C.
+**These bitstreams predate the design space exploration by four months.** The
+out-of-context synthesis runs that produced configurations A through D are
+timestamped 19–20 August 2026, while both bitstreams were built on 5 April
+2026. The CNV bitstream therefore does not correspond to any of the four
+reported configurations, and in particular it should not be assumed to be
+Configuration C. No build log was retained, so which folding it used is not
+documented.
 
 ---
 
